@@ -100,11 +100,35 @@ def run_minimap2(job, name_A, genome_A, name_B, genome_B, distance, params):
     minimap2_params = params.find("blast").attrib["minimap2_params"]
     
     # Generate the alignment
-    minimap2_cmd = ['minimap2',
-                    '-c',
-                    job.fileStore.readGlobalFile(genome_A),
-                    job.fileStore.readGlobalFile(genome_B)] + minimap2_params.split(' ')
+    minimap2_cmd = ['minimap2', '-c', genome_a_file, genome_b_file] + minimap2_params.split(' ')
     cactus_call(parameters=minimap2_cmd, outfile=alignment_file, job_memory=job.memory)
+
+    # Return the alignment file
+    return job.fileStore.writeGlobalFile(alignment_file)
+
+def run_fastga(job, name_A, genome_A, name_B, genome_B, distance, params):
+    # Create a local temporary file to put the alignments in.
+    work_dir = job.fileStore.getLocalTempDir()
+    fastga_tempdir = os.path.join(work_dir, 'fgatmp')
+    os.mkdir(fastga_tempdir)
+    
+    alignment_file = os.path.join(work_dir, '{}_{}.paf'.format(name_A, name_B))
+
+    # Get the input files
+    genome_a_file = os.path.join(work_dir, '{}.fa'.format(name_A))
+    genome_b_file = os.path.join(work_dir, '{}.fa'.format(name_B))
+    job.fileStore.readGlobalFile(genome_A, genome_a_file)
+    job.fileStore.readGlobalFile(genome_B, genome_b_file)
+
+    fastga_params = params.find("blast").attrib["fastga_params"]
+    
+    # Generate the alignment
+    # note: FastGA very picky about spacking and ordering of parameters
+    fastga_cmd = ['FastGA']
+    if fastga_params:
+        fastga_cmd += fastga_params.split(' ')
+    fastga_cmd += ['-P{}'.format(fastga_tempdir), '-T{}'.format(job.cores), genome_b_file, genome_a_file]
+    cactus_call(parameters=fastga_cmd, outfile=alignment_file, job_memory=job.memory)
 
     # Return the alignment file
     return job.fileStore.writeGlobalFile(alignment_file)
@@ -172,7 +196,7 @@ def make_chunked_alignments(job, event_a, genome_a, event_b, genome_b, distance,
     chunked_alignment_files = []
     for i, chunk_a in enumerate(chunks_a):
         for j, chunk_b in enumerate(chunks_b):
-            mappers = { "lastz":run_lastz, "minimap2":run_minimap2}
+            mappers = { "lastz":run_lastz, "minimap2":run_minimap2, "fastga":run_fastga}
             mappingFn = mappers[params.find("blast").attrib["mapper"]]
             memory = lastz_memory if lastz_memory else max(200000000, 15*(chunk_a.size+chunk_b.size))
             chunked_alignment_files.append(job.addChildJobFn(mappingFn, '{}_{}'.format(event_a, i), chunk_a,
@@ -227,6 +251,7 @@ def make_ingroup_to_outgroup_alignments_1(job, ingroup_event, outgroup_events, e
 
 def make_ingroup_to_outgroup_alignments_2(job, alignments, ingroup_event, outgroup_events,
                                           event_names_to_sequences, distances, params):
+    
     # a job should never set its own follow-on, so we hang everything off root_job here to encapsulate
     root_job = Job()
     job.addChild(root_job)
@@ -234,17 +259,21 @@ def make_ingroup_to_outgroup_alignments_2(job, alignments, ingroup_event, outgro
     # identify all ingroup sub-sequences that remain unaligned longer than a threshold as follows:
 
     # run paffy to_bed to create a bed of aligned coverage
-    bed_file = job.fileStore.getLocalTempFile()  # Get a temporary file to store the bed file in
+    work_dir = job.fileStore.getLocalTempDir()
+    alignments_file = os.path.join(work_dir, '{}.paf'.format(ingroup_event.iD))
+    job.fileStore.readGlobalFile(alignments, alignments_file)
+    bed_file = os.path.join(work_dir, '{}.bed'.format(ingroup_event.iD))  # Get a temporary file to store the bed file in
     messages = cactus_call(parameters=['paffy', 'to_bed', "--excludeAligned", "--binary",
                                        "--minSize", params.find("blast").attrib["trimMinSize"],
-                                       "-i", job.fileStore.readGlobalFile(alignments),
+                                       "-i", alignments_file,
                                        "--logLevel", getLogLevelString()],
                                        outfile=bed_file, returnStdErr=True, job_memory=job.memory)
     logger.info("paffy to_bed event:{}\n{}".format(ingroup_event.iD, messages[:-1]))  # Log paffy to_bed
 
     # run faffy extract to extract unaligned sequences longer than a threshold creating a reduced subset of A
-    seq_file = job.fileStore.getLocalTempFile()  # Get a temporary file to store the subsequences in
-    ingroup_seq_file = job.fileStore.readGlobalFile(event_names_to_sequences[ingroup_event.iD])  # The ingroup sequences
+    seq_file = os.path.join(work_dir, '{}_subseq.fa'.format(ingroup_event.iD))  # Get a temporary file to store the subsequences in
+    ingroup_seq_file = os.path.join(work_dir, '{}.fa'.format(ingroup_event.iD))
+    job.fileStore.readGlobalFile(event_names_to_sequences[ingroup_event.iD], ingroup_seq_file)  # The ingroup sequences
     messages = cactus_call(parameters=['faffy', 'extract', "-i", bed_file, ingroup_seq_file,
                                        "--flank", params.find("blast").attrib["trimFlanking"],
                                        "--logLevel", getLogLevelString()],
@@ -553,24 +582,27 @@ def trim_unaligned_sequences(job, sequences, alignments, params, has_resources=F
     if not has_resources:
         return job.addChildJobFn(trim_unaligned_sequences, sequences, alignments, params, has_resources=True,
                                  disk=8*sum([seq.size for seq in sequences]) + 32*alignments.size,
-                                 memory=cactus_clamp_memory(8*sum([seq.size for seq in sequences]) + 32*alignments.size)).rv()        
-    
-    alignments = job.fileStore.readGlobalFile(alignments)  # Download the alignments
+                                 memory=cactus_clamp_memory(8*sum([seq.size for seq in sequences]) + 32*alignments.size)).rv()
+
+    work_dir = job.fileStore.getLocalTempDir()
+    alignments_file = os.path.join(work_dir, 'alignments.paf')    
+    job.fileStore.readGlobalFile(alignments, alignments_file)  # Download the alignments
 
     # Make a bed of aligned sequence
     # run paffy to_bed to create a bed of aligned coverage
-    bed_file = job.fileStore.getLocalTempFile()  # Get a temporary file to store the bed file in
+    bed_file = alignments_file + '.bed' # Get a temporary file to store the bed file in
     messages = cactus_call(parameters=['paffy', 'to_bed', "--binary", "--excludeUnaligned", "--includeInverted",
-                                       '-i', alignments, "--logLevel", getLogLevelString()],
+                                       '-i', alignments_file, "--logLevel", getLogLevelString()],
                            outfile=bed_file, returnStdErr=True, job_memory=job.memory)
     # Log paffy to_bed
     logger.info("paffy to_bed:\n{}".format(messages[:-1]))
 
     trimmed_sequence_files = []
-    for sequence in sequences:
+    for i, sequence in enumerate(sequences):
         # run faffy extract to extract unaligned sequences longer than a threshold creating a reduced subset of A
-        seq_file = job.fileStore.readGlobalFile(sequence)  # Load original sequence file
-        trimmed_seq_file = job.fileStore.getLocalTempFile()  # Get a temporary file to store the extracted subsequences
+        seq_file = os.path.join(work_dir, '{}.fa'.format(i))
+        job.fileStore.readGlobalFile(sequence, seq_file)  # Load original sequence file
+        trimmed_seq_file = seq_file + '.trim'  # Get a temporary file to store the extracted subsequences
         messages = cactus_call(parameters=['faffy', 'extract', "-i", bed_file, seq_file, "--skipMissing", "--minSize", "1",
                                            "--flank", params.find("blast").attrib["trimOutgroupFlanking"],
                                            "--logLevel", getLogLevelString()],
@@ -579,8 +611,8 @@ def trim_unaligned_sequences(job, sequences, alignments, params, has_resources=F
         trimmed_sequence_files.append(trimmed_seq_file)
 
     # Now convert the alignments to refer to the reduced sequences
-    trimmed_alignments = job.fileStore.getLocalTempFile()  # Get a temporary file to store the "trimmed" alignments
-    messages = cactus_call(parameters=['paffy', 'upconvert', "-i", alignments, "--logLevel", getLogLevelString()] +
+    trimmed_alignments = alignments_file + '.trim'  # Get a temporary file to store the "trimmed" alignments
+    messages = cactus_call(parameters=['paffy', 'upconvert', "-i", alignments_file, "--logLevel", getLogLevelString()] +
                            trimmed_sequence_files, outfile=trimmed_alignments, returnStdErr=True)
     logger.info("paffy upconvert\n{}".format(messages[:-1]))  # Log
 

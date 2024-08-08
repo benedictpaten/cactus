@@ -106,7 +106,7 @@ def runCactusBlastOnly(options):
             config_wrapper.substituteAllPredefinedConstantsWithLiterals(options)
             config_wrapper.applySlurmChunkScaling(options)
             # apply gpu override
-            config_wrapper.initGPU(options)
+            config_wrapper.initLastz(options)
             mc_tree, input_seq_map, og_candidates = parse_seqfile(options.seqFile, config_wrapper)
             og_map = compute_outgroups(mc_tree, config_wrapper, set(og_candidates), chrom_info_file = options.chromInfo)
             event_set = get_event_set(mc_tree, config_wrapper, og_map, options.root)
