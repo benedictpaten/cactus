@@ -171,7 +171,8 @@ def merge_combined_chunks(job, combined_chunks):
 def make_chunked_alignments(job, event_a, genome_a, event_b, genome_b, distance, params):
     lastz_params_node = params.find("blast")
     gpu = getOptionalAttrib(lastz_params_node, 'gpu', typeFn=int, default=0)
-    if gpu:
+    fastga = getOptionalAttrib(lastz_params_node, 'mapper', typeFn=str) == 'fastga'
+    if gpu or fastga:
         # wga-gpu has a 6G limit, so we always override
         lastz_params_node.attrib['chunkSize'] = '6000000000'
     lastz_cores = getOptionalAttrib(lastz_params_node, 'cpu', typeFn=int, default=None)
