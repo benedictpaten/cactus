@@ -358,8 +358,12 @@ class ConfigWrapper:
 
         # FastGA doesn't work on fragmented assemblies.  It even crashes on trimmed evolver primates
         # We work around this a bit by disabling trimming
+        #
+        # todo: i'm not sure whay paffy chain doesnt work on fastga alignments but it always
+        # reports 0 chain scores
         if fastga:
             findRequiredNode(self.xmlRoot, 'blast').attrib['trimIngroups'] = '0'
+            findRequiredNode(self.xmlRoot, 'blast').attrib['minPrimaryChainScore'] = '0'
 
     def setSystemMemory(self, options):
         """ hide the amount of memory available (on single machine) in the config
