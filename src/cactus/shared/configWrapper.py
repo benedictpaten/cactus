@@ -252,17 +252,25 @@ class ConfigWrapper:
                 return getOptionalAttrib(node, "active", default="1" if default_val else "0") == "1"
         return default_val
 
-    def initGPU(self, options):
+    def initLastz(self, options):
         """ Turn on GPU and / or check options make sense """
+        # fastga trumps all.  we explicitly disable gpu if it's on
+        fastga = getOptionalAttrib(findRequiredNode(self.xmlRoot, 'blast'), 'mapper', typeFn=str) == 'fastga'
+        
         # first, we override the config with --gpu from the options
         # (we'll never use the options.gpu after -- only the config)
-        if options.gpu:
-            findRequiredNode(self.xmlRoot, "blast").attrib["gpu"] = str(options.gpu)
+        if options.gpu or fastga:            
+            findRequiredNode(self.xmlRoot, "blast").attrib["gpu"] = '0' if fastga else str(options.gpu)
             for node in self.xmlRoot.findall("preprocessor"):
                 if getOptionalAttrib(node, "preprocessJob") == "lastzRepeatMask":
-                    node.attrib["gpu"] = str(options.gpu)
-            if 'latest' in options and options.latest:
+                    node.attrib["gpu"] = '0' if fastga else str(options.gpu)
+                if fastga and getOptionalAttrib(node, "preprocessJob") in ["red", "lastzRepeatMask"]:
+                    node.attrib["active"] = '0'                    
+            if options.gpu and 'latest' in options and options.latest:
                 raise RuntimeError('--latest cannot be used with --gpu')
+            if fastga:
+                logger.warning('Disabling --gpu because FastGA activated')
+                options.gpu = None
             
         # we need to make sure that gpu is set to an integer (replacing 'all' with a count)
         def get_gpu_count():
@@ -307,18 +315,22 @@ class ConfigWrapper:
         if 'lastzMemory' not in options:
             options.lastzMemory = None            
         lastz_cores = options.lastzCores if options.lastzCores else None
-            
-        if getOptionalAttrib(findRequiredNode(self.xmlRoot, "blast"), 'gpu', typeFn=int, default=0):
+
+        if getOptionalAttrib(findRequiredNode(self.xmlRoot, 'blast'), 'gpu', typeFn=int, default=0) or fastga:
             if not lastz_cores:
                 # segalign still can't contorl the number of cores it uses (!).  So we give all available on
-                # single machine.  
+                # single machine.
+                # note: we apply the same logic (default to all cpus) for FastGA, at least for now. 
                 if options.batchSystem.lower() in ['single_machine', 'singlemachine']:
                     if options.maxCores is not None and options.maxCores < 2**20:
                         lastz_cores = options.maxCores
                     else:
                         lastz_cores = cactus_cpu_count()
                 else:
-                    raise RuntimeError('--lastzCores must be used with --gpu on non-singlemachine batch systems')
+                    if fastga:
+                        raise RuntimeError('--lastzCores must be used with FastGA on non-singlemachine batch systems')
+                    else:
+                        raise RuntimeError('--lastzCores must be used with --gpu on non-singlemachine batch systems')
 
         # override blast cores and memory if specified
         if lastz_cores:
@@ -344,6 +356,14 @@ class ConfigWrapper:
             logger.warning("Switching off blast realignment as it is incompatible with GPU mode")
             findRequiredNode(self.xmlRoot, "blast").attrib["realign"] = "0"
 
+        # FastGA doesn't work on fragmented assemblies.  It even crashes on trimmed evolver primates
+        # We work around this a bit by disabling trimming
+        #
+        # todo: i'm not sure whay paffy chain doesnt work on fastga alignments but it always
+        # reports 0 chain scores
+        if fastga:
+            findRequiredNode(self.xmlRoot, 'blast').attrib['trimIngroups'] = '0'
+            findRequiredNode(self.xmlRoot, 'blast').attrib['minPrimaryChainScore'] = '0'
 
     def setSystemMemory(self, options):
         """ hide the amount of memory available (on single machine) in the config

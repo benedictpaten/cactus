@@ -36,8 +36,9 @@
 	<!-- Params for blast -->
 	<!-- chunkSize The size of sequences in a blast job. Increase the chunkSize in the caf tag to reduce the number of blast jobs approximately quadratically -->
 	<!-- overlapSize The amount of basepair overlap between chunks -->
-	<!-- mapper The local alignment program to use, currently either lastz or minimap2 -->
+	<!-- mapper The local alignment program to use, currently either lastz or minimap2 or fastga -->
 	<!-- minimap2_params Parameters to use with minimap2 -->
+	<!-- fastga_params Parameters to use with fastga -->
 	<!-- compressFiles Compress the local alignments. (I think this may be broken) -->
 	<!-- filterByIdentity Filter alignments by % identity -->
 	<!-- identityRatio Let L be the sum of the branch lengths in the guide tree on the path connecting the genomes to be aligned.
@@ -70,6 +71,7 @@
 		   overlapSize="10000"
 		   mapper="lastz"
 		   minimap2_params="-x asm20"
+		   fastga_params="-pafx"
 		   minimumSequenceLengthForBlast="30"
 		   compressFiles="1"
 		   filterByIdentity="0"
@@ -104,7 +106,7 @@
 				four="--step=3 --ambiguous=iupac,100,100 --ydrop=3000"
 				five="--step=2 --ambiguous=iupac,100,100 --ydrop=3000"
 				default="--step=1 --ambiguous=iupac,100,100 --ydrop=3000"
-		/>
+				/>
 	</blast>
 
 	<setup makeEventHeadersAlphaNumeric="0"/>

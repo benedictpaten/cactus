@@ -31,3 +31,6 @@
 [submodule "submodules/red"]
 	path = submodules/red
 	url = https://github.com/glennhickey/red.git
+[submodule "submodules/FASTGA"]
+	path = submodules/FASTGA
+	url = https://github.com/thegenemyers/FASTGA.git

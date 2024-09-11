@@ -6,7 +6,7 @@ modules = api setup caf bar hal reference pipeline preprocessor
 
 # submodules are in multiple pass to handle dependencies cactus2hal being dependent on
 # both cactus and sonLib
-submodules1 = sonLib cPecan hal matchingAndOrdering pinchesAndCacti abPOA lastz paffy red
+submodules1 = sonLib cPecan hal matchingAndOrdering pinchesAndCacti abPOA lastz paffy red FASTGA
 submodules2 = cactus2hal
 submodules = ${submodules1} ${submodules2}
 
@@ -270,6 +270,14 @@ suball.paffy:
 suball.red:
 	cd submodules/red && ${MAKE}
 	ln -f submodules/red/bin/Red ${BINDIR}
+
+suball.FASTGA:
+	cd submodules/FASTGA && ${MAKE}
+	ln -f submodules/FASTGA/FastGA ${BINDIR}
+	ln -f submodules/FASTGA/ALNtoPAF ${BINDIR}
+	ln -f submodules/FASTGA/FAtoGDB ${BINDIR}
+	ln -f submodules/FASTGA/GIXmake ${BINDIR}
+	ln -f submodules/FASTGA/GIXrm ${BINDIR}
 
 subclean.%:
 	cd submodules/$* && ${MAKE} clean
