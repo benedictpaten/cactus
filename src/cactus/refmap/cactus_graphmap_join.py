@@ -685,20 +685,17 @@ def clip_vg(job, options, config, vg_path, vg_id, phase):
         normalized_path = vg_path + '.gfaffixed'
         gfa_in_path = vg_path + '.gfa'
         gfa_out_path = normalized_path + '.gfa'
-        # GFAffix's --dont_collapse option doesn't work on W-lines, so we strip them for now with -W
-        cactus_call(parameters=['vg', 'convert', '-W', '-f', vg_path], outfile=gfa_in_path, job_memory=job.memory)
+        # GFAffix supports W-lines as reference paths since v0.2.0
+        cactus_call(parameters=['vg', 'convert', '-f', vg_path], outfile=gfa_in_path, job_memory=job.memory)
         fix_cmd = ['gfaffix', gfa_in_path, '--output_refined', gfa_out_path, '--check_transformation']
         if options.reference:
             fix_cmd += ['--dont_collapse', options.reference[0] + '#[.]*']
         cactus_call(parameters=fix_cmd, job_memory=job.memory)
-        # GFAffix strips the header, until this is fixed we need to add it back (for the RS tag)
-        gfa_header = cactus_call(parameters=['head', '-1', gfa_in_path], check_output=True).strip()
-        cactus_call(parameters=['sed', '-i', gfa_out_path, '-e', '1s/.*/{}/'.format(gfa_header)])
         # Come back from gfa to vg
         conv_cmd = [['vg', 'convert', '-g', '-p', gfa_out_path]]
         # GFAFfix doesn't unchop, so we do that in vg after
         conv_cmd.append(['vg', 'mod', '-u', '-'])
-        cactus_call(parameters=conv_cmd, outfile=normalized_path)        
+        cactus_call(parameters=conv_cmd, outfile=normalized_path)
         vg_path = normalized_path
 
     # run clip-vg no matter what, but we don't actually remove anything in full
