@@ -309,12 +309,12 @@ fi
 
 # gfaffix
 cd ${pangenomeBuildDir}
-wget -q https://github.com/marschall-lab/GFAffix/releases/download/0.1.5b/GFAffix-0.1.5b_linux_x86_64.tar.gz
-tar xzf GFAffix-0.1.5b_linux_x86_64.tar.gz
-chmod +x GFAffix-0.1.5b_linux_x86_64/gfaffix
-if [[ $STATIC_CHECK -ne 1 || $(ldd GFAffix-0.1.5b_linux_x86_64/gfaffix | grep so | wc -l) -eq 0 ]]
+wget -q https://github.com/marschall-lab/GFAffix/releases/download/0.2.0/GFAffix-0.2.0_linux_x86_64.tar.gz
+tar xzf GFAffix-0.2.0_linux_x86_64.tar.gz
+chmod +x GFAffix-0.2.0_linux_x86_64/gfaffix
+if [[ $STATIC_CHECK -ne 1 || $(ldd GFAffix-0.2.0_linux_x86_64/gfaffix | grep so | wc -l) -eq 0 ]]
 then
-	 mv GFAffix-0.1.5b_linux_x86_64/gfaffix ${binDir}
+	 mv GFAffix-0.2.0_linux_x86_64/gfaffix ${binDir}
 else
 	 exit 1
 fi

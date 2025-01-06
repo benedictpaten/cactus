@@ -687,7 +687,7 @@ def clip_vg(job, options, config, vg_path, vg_id, phase):
         gfa_out_path = normalized_path + '.gfa'
         # GFAffix's --dont_collapse option doesn't work on W-lines, so we strip them for now with -W
         cactus_call(parameters=['vg', 'convert', '-W', '-f', vg_path], outfile=gfa_in_path, job_memory=job.memory)
-        fix_cmd = ['gfaffix', gfa_in_path, '--output_refined', gfa_out_path, '--check_transformation']
+        fix_cmd = ['gfaffix', gfa_in_path, '--output_refined', gfa_out_path, '--check_transformation', '--threads', str(job.cores)]
         if options.reference:
             fix_cmd += ['--dont_collapse', options.reference[0] + '#[.]*']
         cactus_call(parameters=fix_cmd, job_memory=job.memory)
