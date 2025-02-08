@@ -66,4 +66,5 @@ setup(
                             'cactus-hal2maf = cactus.maf.cactus_hal2maf:main',
                             'cactus-hal2chains = cactus.maf.cactus_hal2chains:main',
                             'cactus-maf2bigmaf = cactus.maf.cactus_maf2bigmaf:main',
-                            'cactus-pangenome = cactus.refmap.cactus_pangenome:main']},)
+                            'cactus-pangenome = cactus.refmap.cactus_pangenome:main',
+                            'cactus-mafviz = cactus.maf.cactus_mafviz:main']},)
