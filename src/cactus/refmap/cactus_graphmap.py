@@ -537,7 +537,7 @@ def self_align(job, config, seq_name, seq_id):
         cactus_call(parameters=cmd, outfile=paf_path, outappend=True)
     return job.fileStore.writeGlobalFile(paf_path)        
 
-def filter_paf(job, paf_id, config, reference=None):
+def filter_paf(job, paf_id, config, reference=None, skip_overlap_filter=False):
     """ run basic paf-filtering.  these are quick filters that are best to do on-the-fly when reading the paf and 
         as such, they are called by cactus-graphmap-split and cactus-align, not here """
     work_dir = job.fileStore.getLocalTempDir()
@@ -590,7 +590,7 @@ def filter_paf(job, paf_id, config, reference=None):
     length_ratio = getOptionalAttrib(findRequiredNode(config.xmlRoot, "graphmap"), "PAFOverlapFilterMinLengthRatio", typeFn=float, default=0)
     allow_collapse = getOptionalAttrib(findRequiredNode(config.xmlRoot, "graphmap"), "collapse", typeFn=str, default="none") != "none"
 
-    if overlap_ratio and not allow_collapse:
+    if not skip_overlap_filter and overlap_ratio and not allow_collapse:
         overlap_filter_paf_path = filter_paf_path + ".overlap"
         cactus_call(parameters=['gaffilter', filter_paf_path, '-p', '-r', str(overlap_ratio), '-m', str(length_ratio),
                                 '-b', str(min_block), '-q', str(min_mapq), '-i', str(min_ident)],

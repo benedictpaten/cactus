@@ -372,7 +372,7 @@
 		 minGAFQueryOverlapFilter="0"
 		 GAFOverlapFilterRatio="5"
 		 GAFOverlapFilterMinLengthRatio="0.25"
-		 PAFOverlapFilterRatio="5"
+		 PAFOverlapFilterRatio="0"
 		 PAFOverlapFilterMinLengthRatio="0"
 		 maskFilter="-1"
 		 delFilter="10000000"
